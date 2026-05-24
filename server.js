@@ -16,7 +16,7 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 /**
  * POST /chat
  * Body: { "message": "Your question here" }
- * Returns: { "reply": "Gemini's response" }
+ * Returnss: { "reply": "Gemini's response" }
  */
 app.post("/chat", async (req, res) => {
   const { message } = req.body;
@@ -156,7 +156,7 @@ Rules:
  * Body: { "imageBase64": "<base64 string>", "mimeType": "image/jpeg" }
  * Returns: {
  *   "dishes": [
- *     { "dishName": "...", "description": "...", "weight": "...", "price": 0, "estimatedIngredients": ["..."], "calories": 0, "protein": 0, "fats": 0, "carbs": 0, "confidence": 0.8, "isApproximate": true }
+ *     { "dishNames": "...", "description": "...", "weight": "...", "price": 0, "estimatedIngredients": ["..."], "calories": 0, "protein": 0, "fats": 0, "carbs": 0, "confidence": 0.8, "isApproximate": true }
  *   ],
  *   "rawMenuText": "..."
  * }
