@@ -14,6 +14,35 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 /**
+ * Robustly extract a JSON string from a Gemini response that may be wrapped
+ * in markdown code fences (```json ... ```) or contain extra surrounding text.
+ */
+function extractJson(raw) {
+  if (!raw) return '{}';
+
+  // 1. Strip ```json ... ``` or ``` ... ``` fences
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+
+  // 2. Try to pull out the outermost JSON object
+  const objStart = raw.indexOf('{');
+  const objEnd = raw.lastIndexOf('}');
+  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+    return raw.substring(objStart, objEnd + 1);
+  }
+
+  // 3. Try to pull out the outermost JSON array
+  const arrStart = raw.indexOf('[');
+  const arrEnd = raw.lastIndexOf(']');
+  if (arrStart !== -1 && arrEnd !== -1 && arrEnd > arrStart) {
+    return raw.substring(arrStart, arrEnd + 1);
+  }
+
+  // 4. Return as-is and let the caller handle the parse error
+  return raw.trim();
+}
+
+/**
  * POST /chat
  * Body: { "message": "Your question here" }
  * Returnss: { "reply": "Gemini's response" }
@@ -108,7 +137,7 @@ Rules:
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
           responseMimeType: "application/json",
         },
       }),
@@ -121,22 +150,15 @@ Rules:
     }
 
     const data = await geminiRes.json();
-    let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-
-    console.log("Cleaned JSON (first 300 chars):", rawText.substring(0, 300));
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    console.log("Raw Gemini response (first 300 chars):", rawText.substring(0, 300));
 
     let analysis;
     try {
-      // Robust JSON extraction in case of unexpected wrappers
-      const jsonStart = rawText.indexOf('{');
-      const jsonEnd = rawText.lastIndexOf('}');
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        rawText = rawText.substring(jsonStart, jsonEnd + 1);
-      }
-
-      analysis = JSON.parse(rawText);
+      const cleaned = extractJson(rawText);
+      analysis = JSON.parse(cleaned);
     } catch (parseErr) {
-      console.error("JSON parse error:", parseErr.message, "Raw:", rawText.substring(0, 500));
+      console.error("JSON parse error:", parseErr.message, "\nRaw response:", rawText.substring(0, 800));
       return res.status(500).json({
         error: "Failed to parse AI response as JSON",
         details: parseErr.message,
@@ -226,7 +248,7 @@ OUTPUT FORMAT (strict JSON, no markdown fences):
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
           responseMimeType: "application/json",
         },
       }),
@@ -239,21 +261,15 @@ OUTPUT FORMAT (strict JSON, no markdown fences):
     }
 
     const data = await geminiRes.json();
-    let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-
-    console.log("Cleaned JSON (first 300 chars):", rawText.substring(0, 300));
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    console.log("Raw Gemini response (first 300 chars):", rawText.substring(0, 300));
 
     let analysis;
     try {
-      const jsonStart = rawText.indexOf('{');
-      const jsonEnd = rawText.lastIndexOf('}');
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        rawText = rawText.substring(jsonStart, jsonEnd + 1);
-      }
-
-      analysis = JSON.parse(rawText);
+      const cleaned = extractJson(rawText);
+      analysis = JSON.parse(cleaned);
     } catch (parseErr) {
-      console.error("JSON parse error:", parseErr.message, "Raw:", rawText.substring(0, 500));
+      console.error("JSON parse error:", parseErr.message, "\nRaw response:", rawText.substring(0, 800));
       return res.status(500).json({
         error: "Failed to parse AI response as JSON",
         details: parseErr.message,
